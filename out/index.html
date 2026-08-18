@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>OLO — Distribución Gastos de Personal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* OLO brand palette */
+  :root{--bg:#EEF6F5;--bg2:#FFFFFF;--bg3:#F0F8F7;--card:#FFFFFF;--border:#D0EAE6;--border2:#B3DDD8;
+    --blue:#009B8D;--blue2:#007B6E;--green:#00B49E;--green2:#007B6E;--teal-accent:#00D4BA;--teal-light:#E8F7F5;--teal-mid:#B3DDD8;
+    --text:#1A1A1A;--text2:#475569;--text3:#888888;--yellow:#d97706;--red:#dc2626;--purple:#7c3aed;
+    --radius:8px;--radius2:12px;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 8px 24px -8px rgba(0,155,141,.15);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Manrope',system-ui,sans-serif;font-size:14px;min-height:100vh;}
+  .header{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:16px;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,155,141,.08);}
+  .header-logo{display:flex;align-items:center;gap:10px;white-space:nowrap;}
+  .header-logo-text{font-size:15px;font-weight:800;color:var(--text);line-height:1.1;}
+  .header-logo-sub{font-size:10px;font-weight:600;color:var(--blue);letter-spacing:.08em;text-transform:uppercase;}
+  .header-sep{flex:1;}
+  .main{padding:20px 24px;}
+  .drop{border:2px dashed var(--border2);border-radius:var(--radius2);padding:44px;text-align:center;color:var(--text2);cursor:pointer;transition:.2s;background:var(--bg2);box-shadow:var(--shadow);font-weight:600;}
+  .drop:hover,.drop.over{border-color:var(--blue);color:var(--text);background:var(--teal-light);}
+  .drop b{color:var(--blue);}
+  .hidden{display:none!important;}
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;box-shadow:var(--shadow);}
+  .card h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px;font-weight:700;}
+  .chk{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;}
+  .chk:hover{background:var(--teal-light);}
+  .chk input{accent-color:var(--blue);cursor:pointer;}
+  .chk .n{margin-left:auto;color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;}
+  .chk.off{opacity:.45;text-decoration:line-through;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:16px 18px;box-shadow:var(--shadow);}
+  .kpi .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono',monospace;color:var(--blue);}
+  .kpi .l{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;font-weight:700;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--bg3);color:var(--text2);text-transform:uppercase;font-size:11px;font-weight:700;letter-spacing:.06em;text-align:right;padding:10px 12px;border-bottom:2px solid var(--border);white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  td:first-child{font-family:'Manrope',sans-serif;font-weight:600;font-size:13px;}
+  tr:hover td{background:var(--teal-light);}
+  tr.tot td{font-weight:700;border-top:2px solid var(--border2);background:var(--bg3);}
+  .bar{height:6px;background:var(--teal-light);border-radius:3px;overflow:hidden;min-width:90px;}
+  .bar i{display:block;height:100%;background:var(--blue);border-radius:3px;}
+  .pct{color:var(--green2);font-weight:600;}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:var(--blue);border:none;color:#fff;padding:8px 14px;border-radius:var(--radius);font-size:13px;cursor:pointer;font-weight:600;transition:all .2s;font-family:'Manrope',sans-serif;white-space:nowrap;}
+  .btn:hover{background:var(--blue2);}
+  .btn.sec{background:var(--bg2);border:1px solid var(--border2);color:var(--text2);}
+  .btn.sec:hover{border-color:var(--blue);color:var(--blue);background:var(--bg2);}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .mode{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;cursor:pointer;font-weight:600;}
+  .mode input{accent-color:var(--blue);}
+  .mode select{background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;font-size:12px;font-family:'Manrope',sans-serif;font-weight:600;}
+  .tag{font-size:11px;background:var(--teal-light);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;color:var(--blue2);font-weight:700;}
+  .warn{color:var(--yellow);font-size:12px;margin-top:8px;font-weight:600;}
+  h4.sec-t{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;font-weight:700;}
+  .link{background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;padding:0;margin-left:8px;font-family:'Manrope',sans-serif;font-weight:600;}
+  .link:hover{color:var(--blue2);text-decoration:underline;}
+  #obslist li{position:relative;margin:7px 0;padding-left:20px;font-size:13px;line-height:1.55;color:var(--text2);font-family:'Manrope',sans-serif;}
+  #obslist li::before{content:'▸';position:absolute;left:4px;color:var(--blue);font-weight:800;}
+  #obslist li b{color:var(--text);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">
+    <svg width="46" height="32" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="22" height="22" rx="3.5" fill="white" stroke="#111" stroke-width="4"/>
+      <rect x="27" y="1.5" width="4" height="32" rx="2" fill="#111"/>
+      <rect x="27" y="30" width="35" height="4" rx="2" fill="#111"/>
+      <rect x="35" y="1.5" width="22" height="22" rx="3.5" fill="#009B8D" stroke="#111" stroke-width="4"/>
+    </svg>
+    <div>
+      <div class="header-logo-text">OLO Logistics</div>
+      <div class="header-logo-sub">Distribución Gastos de Personal</div>
+    </div>
+  </div>
+  <div class="header-sep"></div>
+  <span style="font-size:12px;color:var(--text3);font-weight:600">Salarios multi-zona repartidos según el método seleccionado</span>
+</div>
+
+<div class="main">
+<div id="drop" class="drop">Arrastrá el archivo de headcount aquí o <b>hacé clic para seleccionar</b> (.xlsx / .csv)<br>
+  <span style="font-size:12px;color:var(--text3);font-weight:500">Columnas esperadas: Nombre · Código · Tipo · Salario Referencia · Zona</span>
+  <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hidden">
+</div>
+
+<div id="app" class="hidden">
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Áreas (Tipo) <button class="link" data-g="tipo" data-v="1">todas</button><button class="link" data-g="tipo" data-v="0">ninguna</button></h3>
+        <div id="tipos"></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h3>Zonas <button class="link" data-g="zona" data-v="1">todas</button><button class="link" data-g="zona" data-v="0">ninguna</button></h3>
+        <div id="zonas"></div>
+      </div>
+      <div class="card hidden" style="margin-top:12px" id="plcard">
+        <h3>P&amp;L — Costo real USD</h3>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+          <select id="plsheet" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:5px 6px;font-size:12px;font-family:'Manrope',sans-serif;font-weight:600"></select>
+          <select id="plmonth" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:5px 6px;font-size:12px;font-family:'Manrope',sans-serif;font-weight:600"></select>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-weight:600;color:var(--text2)">
+            <span title="El monto seleccionado se divide entre esta cantidad de meses (útil cuando el valor es acumulado del año).">Dividir entre (meses)</span>
+            <input type="number" id="plmeses" min="1" step="1" value="1" style="width:60px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;font-size:12px;font-family:'IBM Plex Mono',monospace;text-align:right">
+          </div>
+          <input id="plsearch" placeholder="Buscar línea del P&L…" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'Manrope',sans-serif">
+        </div>
+        <div id="pllines" style="max-height:280px;overflow-y:auto"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:2px solid var(--border);font-size:12px;color:var(--text2);font-weight:600">
+          <span>Seleccionado (acum)</span><span id="plraw" style="font-family:'IBM Plex Mono',monospace">$0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-weight:700;font-size:13px">
+          <span>USD/mes a distribuir</span><span id="pltot" style="color:var(--blue);font-family:'IBM Plex Mono',monospace">$0</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <span class="tag" id="fname"></span>
+        <label class="mode" title="Cómo repartir el salario de empleados asignados a varias zonas (administración, OLO 0, etc.).">
+          Reparto multi-zona:&nbsp;
+          <select id="metodo">
+            <option value="prop" selected>Proporcional al costo directo de la zona</option>
+            <option value="igual">Partes iguales</option>
+          </select>
+        </label>
+        <label class="mode" title="Qué hacer con el salario de áreas/zonas excluidas.">
+          Exclusiones:&nbsp;
+          <select id="modo">
+            <option value="redist" selected>Redistribuir proporcionalmente entre zonas activas</option>
+            <option value="quitar">Quitar del total</option>
+          </select>
+        </label>
+        <label class="mode" title="Si excluís una zona: reasignar la porción del salario multi-zona entre sus zonas restantes incluidas antes de redistribuir globalmente.">
+          <input type="checkbox" id="redist" checked> Multi-zona: reasignar a zonas restantes del empleado
+        </label>
+        <span style="flex:1"></span>
+        <button class="btn" id="plbtn">💵 Cargar P&amp;L (GyP)</button>
+        <input type="file" id="plfile" accept=".xlsx,.xls" class="hidden">
+        <button class="btn" id="share">📤 Compartir análisis</button>
+        <button class="btn sec" id="csv">⬇ Exportar CSV</button>
+        <button class="btn sec" id="reload">📁 Cargar otro HC</button>
+        <button class="btn sec" id="clear" title="Borra los datos guardados en este navegador y vuelve a la pantalla inicial">🗑 Limpiar</button>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="kEmp">–</div><div class="l">Empleados incluidos</div></div>
+        <div class="kpi"><div class="v" id="kTot">–</div><div class="l">Salario incluido</div></div>
+        <div class="kpi"><div class="v" id="kExc">–</div><div class="l">Salario excluido</div></div>
+        <div class="kpi"><div class="v" id="kZon">–</div><div class="l">Zonas activas</div></div>
+        <div class="kpi hidden" id="kUsdBox"><div class="v" id="kUsd">–</div><div class="l">Costo P&amp;L (USD)</div></div>
+      </div>
+      <table id="tbl"><thead><tr><th>Zona</th><th>HC eq.</th><th>Directo</th><th>Redistrib.</th><th>Total</th><th>%</th><th>USD P&amp;L</th><th style="width:110px"></th></tr></thead><tbody></tbody></table>
+      <div id="warn" class="warn hidden"></div>
+      <h4 class="sec-t">Resumen por Área (sobre el total incluido)</h4>
+      <table id="tblTipo"><thead><tr><th>Área</th><th>HC</th><th>Salario</th><th>%</th></tr></thead><tbody></tbody></table>
+      <h4 class="sec-t">Observaciones generales</h4>
+      <ul id="obslist" style="list-style:none"></ul>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+let EMP=[], TIPOS=new Set(), ZONAS=new Set(), exT=new Set(), exZ=new Set(), FNAME='', PL=null;
+const $=id=>document.getElementById(id);
+const fmt=n=>'₡'+Math.round(n).toLocaleString('es-CR');
+const fmtN=n=>n.toLocaleString('es-CR',{maximumFractionDigits:2});
+const fmtUSD=n=>'$'+Math.round(n).toLocaleString('en-US');
+
+const drop=$('drop'), fileIn=$('file');
+drop.onclick=()=>{fileIn.value='';fileIn.click();};
+drop.ondragover=e=>{e.preventDefault();drop.classList.add('over');};
+drop.ondragleave=()=>drop.classList.remove('over');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);};
+fileIn.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);};
+$('reload').onclick=()=>{$('app').classList.add('hidden');drop.classList.remove('hidden');fileIn.value='';};
+
+function loadFile(f){
+  FNAME=f.name;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+    parse(rows);
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+function parse(rows){
+  // detectar fila de encabezado buscando "salario" o asumir fila 1
+  let h=0;
+  for(let i=0;i<Math.min(rows.length,5);i++){
+    const s=(rows[i]||[]).map(c=>String(c||'').toLowerCase()).join('|');
+    if(s.includes('salario')||s.includes('zona')){h=i;break;}
+  }
+  const head=(rows[h]||[]).map(c=>String(c||'').toLowerCase());
+  const col=(names,def)=>{for(const n of names){const i=head.findIndex(c=>c.includes(n));if(i>=0)return i;}return def;};
+  const cN=col(['nombre'],0), cT=col(['tipo','área','area'],2), cS=col(['salario'],3), cZ=col(['zona'],4);
+  EMP=[];TIPOS=new Set();ZONAS=new Set();
+  const bad=[];
+  rows.slice(h+1).forEach((r,idx)=>{
+    if(!r||!r[cN])return;
+    const nombre=String(r[cN]).trim();
+    const tipo=String(r[cT]||'SIN ÁREA').trim();
+    const sal=parseFloat(String(r[cS]||'0').replace(/[^0-9.\-]/g,''))||0;
+    const zonas=String(r[cZ]||'').split(',').map(z=>z.trim()).filter(Boolean);
+    if(!zonas.length||!sal){bad.push(nombre);}
+    EMP.push({nombre,tipo,sal,zonas:zonas.length?zonas:['SIN ZONA']});
+    TIPOS.add(tipo);zonas.forEach(z=>ZONAS.add(z));if(!zonas.length)ZONAS.add('SIN ZONA');
+  });
+  exT=new Set();exZ=new Set();
+  $('fname').textContent=FNAME+' · '+EMP.length+' empleados';
+  const w=$('warn');
+  if(bad.length){w.classList.remove('hidden');w.textContent='⚠ Filas sin zona o sin salario: '+bad.join(', ');}else w.classList.add('hidden');
+  drop.classList.add('hidden');$('app').classList.remove('hidden');
+  buildFilters();calc();
+}
+
+function buildFilters(){
+  const mk=(set,ex,cont,cnt)=>{
+    cont.innerHTML='';
+    [...set].sort().forEach(v=>{
+      const l=document.createElement('label');l.className='chk'+(ex.has(v)?' off':'');
+      const c=document.createElement('input');c.type='checkbox';c.checked=!ex.has(v);
+      c.onchange=()=>{c.checked?ex.delete(v):ex.add(v);l.classList.toggle('off',!c.checked);calc();};
+      l.appendChild(c);l.appendChild(document.createTextNode(v));
+      const n=document.createElement('span');n.className='n';n.textContent=cnt(v);l.appendChild(n);
+      cont.appendChild(l);
+    });
+  };
+  mk(TIPOS,exT,$('tipos'),t=>EMP.filter(e=>e.tipo===t).length);
+  mk(ZONAS,exZ,$('zonas'),z=>EMP.filter(e=>e.zonas.includes(z)).length);
+  document.querySelectorAll('.link').forEach(b=>b.onclick=()=>{
+    const ex=b.dataset.g==='tipo'?exT:exZ, all=b.dataset.g==='tipo'?TIPOS:ZONAS;
+    ex.clear();if(b.dataset.v==='0')all.forEach(v=>ex.add(v));
+    buildFilters();calc();
+  });
+}
+
+/* ===== P&L (GyP) ===== */
+$('plbtn').onclick=()=>{$('plfile').value='';$('plfile').click();};
+$('plfile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+    PL=null;$('plsearch').value='';
+    initPL(wb);
+  };
+  rd.readAsArrayBuffer(f);
+};
+
+function mLabel(v){
+  if(v instanceof Date)return v.toISOString().slice(0,7);
+  if(typeof v==='number')return new Date(Math.round((v-25569)*86400000)).toISOString().slice(0,7);
+  return String(v).slice(0,10);
+}
+
+function initPL(wb){
+  PL={wb,sel:new Set(),mi:0,months:[],lines:[]};
+  const sel=$('plsheet');sel.innerHTML='';
+  wb.SheetNames.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+  const cands=wb.SheetNames.filter(n=>/gyp/i.test(n)&&n.includes('$'));
+  sel.value=cands.length?cands[cands.length-1]:wb.SheetNames[0];
+  loadPLSheet(sel.value);
+}
+$('plsheet').onchange=e=>{if(PL&&PL.wb)loadPLSheet(e.target.value);};
+
+function loadPLSheet(name){
+  const rows=XLSX.utils.sheet_to_json(PL.wb.Sheets[name],{header:1,defval:null});
+  let fr=-1,tc=-1,acumRow=-1,acumCol=-1;
+  rows.forEach((r,i)=>{
+    if(!r)return;
+    const s=String(r[1]||'').toLowerCase();
+    if(fr<0&&s.includes('fecha inicial'))fr=i;
+    if(tc<0&&s.includes('tipo de cambio'))tc=i;
+    if(acumRow<0){
+      const j=r.findIndex(c=>String(c||'').trim().toLowerCase()==='acum');
+      if(j>1){acumRow=i;acumCol=j;}
+    }
+  });
+  const ms=$('plmonth');
+  PL.lines=[];PL.months=[];PL.mi=0;
+
+  if(fr>=0){
+    /* Formato 1: meses en columnas (hoja GYP $ ...) */
+    PL.fmt='meses';ms.classList.remove('hidden');
+    (rows[fr]||[]).forEach((v,j)=>{
+      if(j>=2&&v!=null&&(v instanceof Date||typeof v==='number')){
+        let lb=mLabel(v);
+        if(PL.months.some(m=>m.label===lb))lb+=' (Acumulado)';
+        PL.months.push({j,label:lb});
+      }
+    });
+    let mi=PL.months.length-1;
+    if(tc>=0){for(let k=PL.months.length-1;k>=0;k--){if(parseFloat(rows[tc][PL.months[k].j])>0){mi=k;break;}}}
+    PL.mi=mi;
+    rows.forEach((r,i)=>{
+      if(i<=fr||!r)return;
+      const nm=r[1]!=null?String(r[1]).trim():'';
+      if(!nm)return;
+      const low=nm.toLowerCase();
+      if(low.includes('fecha inicial')||low.includes('fecha final')||low.includes('tipo de cambio')||low==='cambio neto')return;
+      const vals=PL.months.map(m=>parseFloat(r[m.j])||0);
+      if(!vals.some(v=>v))return;
+      PL.lines.push({i,code:r[0]!=null?String(r[0]):'',name:nm,vals});
+    });
+    PL.sel=new Set(PL.lines.filter(l=>/^PERSONAL\s/i.test(l.name)&&!l.code).map(l=>l.i));
+    ms.innerHTML='';
+    PL.months.forEach((m,k)=>{const o=document.createElement('option');o.value=k;o.textContent=m.label;ms.appendChild(o);});
+    ms.value=String(mi);
+    $('plmeses').value=1;
+  }else if(acumRow>=0){
+    /* Formato 2: reporte con columna Acum (col I) */
+    PL.fmt='acum';ms.classList.add('hidden');
+    const nameCol=acumCol-1;
+    // meses por defecto: mes de la celda "Fecha" del encabezado
+    let meses=1;
+    for(const r of rows.slice(0,6)){
+      if(!r)continue;
+      const j=r.findIndex(c=>String(c||'').trim().toLowerCase()==='fecha');
+      if(j>=0&&r[j+1]!=null){
+        const d=r[j+1], dd=d instanceof Date?d:(typeof d==='number'?new Date(Math.round((d-25569)*86400000)):null);
+        if(dd&&!isNaN(dd)){meses=dd.getUTCMonth()+1;break;}
+      }
+    }
+    $('plmeses').value=meses;
+    rows.forEach((r,i)=>{
+      if(i<=acumRow||!r)return;
+      const nm=r[nameCol]!=null?String(r[nameCol]).trim():'';
+      if(!nm)return;
+      const v=parseFloat(r[acumCol])||0;
+      if(!v)return;
+      PL.lines.push({i,code:'',name:nm,vals:[v]});
+    });
+    PL.sel=new Set(PL.lines.filter(l=>/^personal\s+(administraci|almac|variable)/i.test(l.name)).map(l=>l.i));
+  }else{
+    alert('No reconozco el formato de la hoja "'+name+'": no encontré "Fecha Inicial" ni columna "Acum". Elegí otra hoja.');
+    return;
+  }
+  $('plcard').classList.remove('hidden');
+  $('kUsdBox').classList.remove('hidden');
+  renderPLList();calc();
+}
+$('plmonth').onchange=e=>{PL.mi=+e.target.value;renderPLList();calc();};
+$('plmeses').oninput=()=>{renderPLList();calc();};
+$('plsearch').oninput=()=>renderPLList();
+
+function plMeses(){return Math.max(1,parseFloat($('plmeses').value)||1);}
+function plRaw(){
+  if(!PL)return 0;
+  return PL.lines.filter(l=>PL.sel.has(l.i)).reduce((a,l)=>a+l.vals[PL.mi],0);
+}
+function plTotal(){return plRaw()/plMeses();}
+
+function renderPLList(){
+  const q=$('plsearch').value.toLowerCase();
+  const cont=$('pllines');cont.innerHTML='';
+  PL.lines.forEach(l=>{
+    const v=l.vals[PL.mi];
+    const match=!q||l.name.toLowerCase().includes(q)||l.code.toLowerCase().includes(q);
+    if(!match||(v===0&&!PL.sel.has(l.i)))return;
+    const lab=document.createElement('label');lab.className='chk';
+    if(!l.code)lab.style.fontWeight='700';
+    const c=document.createElement('input');c.type='checkbox';c.checked=PL.sel.has(l.i);
+    c.onchange=()=>{c.checked?PL.sel.add(l.i):PL.sel.delete(l.i);$('plraw').textContent=fmtUSD(plRaw());$('pltot').textContent=fmtUSD(plTotal());calc();};
+    lab.appendChild(c);
+    lab.appendChild(document.createTextNode(l.name));
+    lab.title=l.code?l.code+' — '+l.name:l.name;
+    const n=document.createElement('span');n.className='n';n.textContent=fmtUSD(v);lab.appendChild(n);
+    cont.appendChild(lab);
+  });
+  $('plraw').textContent=fmtUSD(plRaw());
+  $('pltot').textContent=fmtUSD(plTotal());
+}
+
+function calc(){
+  const redistEmp=$('redist').checked;
+  const modo=$('modo').value; // 'redist' | 'quitar'
+  const metodo=$('metodo').value; // 'prop' | 'igual'
+  const dist={},hc={},byTipo={};
+  let totDir=0,totEx=0,empIn=0;
+  // Pasada 1: base directa por zona (empleados con una sola zona incluida)
+  const baseD={},baseN={};
+  EMP.forEach(e=>{
+    if(exT.has(e.tipo))return;
+    const inc=e.zonas.filter(z=>!exZ.has(z));
+    if(inc.length!==1)return;
+    const div=redistEmp?1:e.zonas.length;
+    baseD[inc[0]]=(baseD[inc[0]]||0)+e.sal/div;
+    baseN[inc[0]]=(baseN[inc[0]]||0)+1;
+  });
+  // Pasada 2: distribución
+  EMP.forEach(e=>{
+    if(exT.has(e.tipo)){totEx+=e.sal;return;}
+    const inc=e.zonas.filter(z=>!exZ.has(z));
+    if(!inc.length){totEx+=e.sal;return;}
+    empIn++;
+    const div=redistEmp?inc.length:e.zonas.length;
+    const alloc=e.sal*inc.length/div; // monto total asignable a zonas incluidas
+    // pesos por zona: proporcional a la base directa o partes iguales
+    let ws;
+    if(metodo==='prop'&&inc.length>1){
+      const tb=inc.reduce((a,z)=>a+(baseD[z]||0),0);
+      ws=tb>0?inc.map(z=>(baseD[z]||0)/tb):inc.map(()=>1/inc.length);
+    }else{
+      ws=inc.map(()=>1/inc.length);
+    }
+    inc.forEach((z,k)=>{
+      dist[z]=(dist[z]||0)+alloc*ws[k];
+      hc[z]=(hc[z]||0)+(inc.length/div)*ws[k];
+      totDir+=alloc*ws[k];
+    });
+    if(!redistEmp)totEx+=e.sal-alloc;
+    byTipo[e.tipo]=byTipo[e.tipo]||{s:0,n:0};
+    byTipo[e.tipo].s+=alloc;byTipo[e.tipo].n++;
+  });
+  // redistribución proporcional del excluido entre zonas activas
+  const redis={};
+  const totRed=(modo==='redist'&&totDir>0)?totEx:0;
+  Object.keys(dist).forEach(z=>redis[z]=totDir?dist[z]/totDir*totRed:0);
+  const fin={};Object.keys(dist).forEach(z=>fin[z]=dist[z]+redis[z]);
+  const totFin=totDir+totRed;
+  const usdTot=plTotal();
+  $('kEmp').textContent=empIn+' / '+EMP.length;
+  $('kTot').textContent=fmt(totFin);
+  $('kExc').textContent=modo==='redist'?fmt(0)+' ('+fmt(totEx)+' redistribuido)':fmt(totEx);
+  $('kZon').textContent=Object.keys(dist).length+' / '+ZONAS.size;
+  if(PL)$('kUsd').textContent=fmtUSD(usdTot)+(PL.fmt==='acum'?' · Acum ÷ '+plMeses():(PL.months[PL.mi]?' · '+PL.months[PL.mi].label:''));
+  const tb=$('tbl').querySelector('tbody');tb.innerHTML='';
+  const zs=Object.keys(fin).sort((a,b)=>fin[b]-fin[a]);
+  const max=Math.max(...zs.map(z=>fin[z]),1);
+  const usd={};
+  zs.forEach(z=>{
+    const p=totFin?fin[z]/totFin*100:0;
+    usd[z]=usdTot*p/100;
+    tb.insertAdjacentHTML('beforeend',`<tr><td>${z}</td><td>${fmtN(hc[z])}</td><td>${fmt(dist[z])}</td><td>${totRed?fmt(redis[z]):'–'}</td><td><b>${fmt(fin[z])}</b></td><td class="pct">${p.toFixed(2)}%</td><td>${usdTot?'<b>'+fmtUSD(usd[z])+'</b>':'–'}</td><td><div class="bar"><i style="width:${fin[z]/max*100}%"></i></div></td></tr>`);
+  });
+  tb.insertAdjacentHTML('beforeend',`<tr class="tot"><td>TOTAL</td><td>${fmtN(Object.values(hc).reduce((a,b)=>a+b,0))}</td><td>${fmt(totDir)}</td><td>${totRed?fmt(totRed):'–'}</td><td>${fmt(totFin)}</td><td>100%</td><td>${usdTot?fmtUSD(usdTot):'–'}</td><td></td></tr>`);
+  const t2=$('tblTipo').querySelector('tbody');t2.innerHTML='';
+  Object.keys(byTipo).sort((a,b)=>byTipo[b].s-byTipo[a].s).forEach(t=>{
+    t2.insertAdjacentHTML('beforeend',`<tr><td>${t}</td><td>${byTipo[t].n}</td><td>${fmt(byTipo[t].s)}</td><td class="pct">${totDir?(byTipo[t].s/totDir*100).toFixed(2):0}%</td></tr>`);
+  });
+  window._export={zs,dist,redis,fin,hc,totFin,usd,usdTot};
+  /* Observaciones generales */
+  const obs=[];
+  if(totFin>0){
+    const T=totFin;
+    const top3=zs.slice(0,3);
+    obs.push(`Las 3 zonas más grandes (<b>${top3.join('</b>, <b>')}</b>) concentran el <b>${(top3.reduce((a,z)=>a+fin[z],0)/T*100).toFixed(1)}%</b> del costo de personal.`);
+    const dirTot=Object.keys(fin).reduce((a,z)=>a+(baseD[z]||0),0);
+    if(dirTot>0)obs.push(`El <b>${((T-dirTot)/T*100).toFixed(1)}%</b> del costo es compartido (personal multi-zona: administración, jefaturas, operativos compartidos) y solo el ${(dirTot/T*100).toFixed(1)}% es directo de cada zona.`);
+    // zona más dependiente de costo compartido
+    let maxSh=null;
+    zs.forEach(z=>{const sh=(fin[z]-(baseD[z]||0))/fin[z];if(fin[z]>0&&(!maxSh||sh>maxSh.sh))maxSh={z,sh};});
+    if(maxSh&&maxSh.sh>0.5)obs.push(`<b>${maxSh.z}</b> es la zona más dependiente de costo compartido: el ${(maxSh.sh*100).toFixed(0)}% de su costo no es personal propio.`);
+    // salario directo promedio más alto
+    let maxAvg=null,sS=0,sN=0;
+    Object.keys(baseD).forEach(z=>{if(baseN[z]){const avg=baseD[z]/baseN[z];sS+=baseD[z];sN+=baseN[z];if(!maxAvg||avg>maxAvg.avg)maxAvg={z,avg,n:baseN[z]};}});
+    if(maxAvg&&sN)obs.push(`<b>${maxAvg.z}</b> tiene el salario directo promedio más alto: ${fmt(maxAvg.avg)} por persona (${maxAvg.n} directos) vs ${fmt(sS/sN)} de promedio general.`);
+    // comparación con partes iguales
+    if(metodo==='prop'){
+      const dEq={};
+      EMP.forEach(e=>{
+        if(exT.has(e.tipo))return;
+        const inc=e.zonas.filter(z=>!exZ.has(z));if(!inc.length)return;
+        const div=redistEmp?inc.length:e.zonas.length;
+        inc.forEach(z=>dEq[z]=(dEq[z]||0)+e.sal/div);
+      });
+      const Te=Object.values(dEq).reduce((a,b)=>a+b,0);
+      let big=null;
+      zs.forEach(z=>{const pe=(dEq[z]||0)/Te*100,pp=fin[z]/T*100,d=pe-pp;if(!big||Math.abs(d)>Math.abs(big.d))big={z,pe,pp,d};});
+      if(big&&Math.abs(big.d)>=1)obs.push(`El reparto proporcional corrige la distorsión de "partes iguales": el caso más notorio es <b>${big.z}</b>, que con partes iguales tendría ${big.pe.toFixed(2)}% y proporcionalmente le corresponde ${big.pp.toFixed(2)}%.`);
+    }
+    if(usdTot){
+      obs.push(`Costo real según P&L: <b>${fmtUSD(usdTot)}</b> por mes${PL&&PL.fmt==='acum'?' (acumulado ÷ '+plMeses()+')':''}. La zona más cara en USD es <b>${zs[0]}</b> con ${fmtUSD(usd[zs[0]])}/mes.`);
+    }
+    if(exT.size||exZ.size){
+      obs.push(`Exclusiones activas: ${[...exT,...exZ].map(x=>'<b>'+x+'</b>').join(', ')} — ${modo==='redist'?'su costo se redistribuye proporcionalmente entre las zonas activas':'su costo quedó fuera del total'}.`);
+    }
+  }
+  $('obslist').innerHTML=obs.map(o=>'<li>'+o+'</li>').join('');
+  saveState();
+}
+
+/* ===== Persistencia (localStorage) ===== */
+const LS_KEY='oloDistGastosPersonal';
+function saveState(){
+  try{
+    const st={v:1,FNAME,EMP,exT:[...exT],exZ:[...exZ],
+      ui:{modo:$('modo').value,metodo:$('metodo').value,redist:$('redist').checked,plmeses:$('plmeses').value},
+      PL:PL?{fmt:PL.fmt,months:PL.months,mi:PL.mi,lines:PL.lines,sel:[...PL.sel]}:null};
+    localStorage.setItem(LS_KEY,JSON.stringify(st));
+  }catch(err){/* almacenamiento no disponible */}
+}
+function loadState(){
+  let st=null;
+  try{st=JSON.parse(localStorage.getItem(LS_KEY));}catch(err){return false;}
+  if(!st||!Array.isArray(st.EMP)||!st.EMP.length)return false;
+  EMP=st.EMP;FNAME=st.FNAME||'';
+  TIPOS=new Set(EMP.map(e=>e.tipo));
+  ZONAS=new Set();EMP.forEach(e=>(e.zonas||[]).forEach(z=>ZONAS.add(z)));
+  exT=new Set(st.exT||[]);exZ=new Set(st.exZ||[]);
+  const ui=st.ui||{};
+  $('modo').value=ui.modo||'redist';
+  $('metodo').value=ui.metodo||'prop';
+  $('redist').checked=ui.redist!==false;
+  $('plmeses').value=ui.plmeses||1;
+  $('fname').textContent=FNAME+' · '+EMP.length+' empleados';
+  drop.classList.add('hidden');$('app').classList.remove('hidden');
+  buildFilters();
+  if(st.PL&&Array.isArray(st.PL.lines)&&st.PL.lines.length){
+    PL={wb:null,fmt:st.PL.fmt,months:st.PL.months||[],mi:st.PL.mi||0,lines:st.PL.lines,sel:new Set(st.PL.sel||[])};
+    const ms=$('plmonth');
+    if(PL.fmt==='meses'){
+      ms.classList.remove('hidden');ms.innerHTML='';
+      PL.months.forEach((m,k)=>{const o=document.createElement('option');o.value=k;o.textContent=m.label;ms.appendChild(o);});
+      ms.value=String(PL.mi);
+    }else ms.classList.add('hidden');
+    const ss=$('plsheet');ss.innerHTML='';
+    const o=document.createElement('option');o.textContent='P&L guardado — recargá el archivo para cambiar de hoja';ss.appendChild(o);
+    $('plcard').classList.remove('hidden');$('kUsdBox').classList.remove('hidden');
+    renderPLList();
+  }
+  calc();
+  return true;
+}
+/* ===== Compartir análisis (reporte HTML autocontenido) ===== */
+$('share').onclick=()=>{
+  const hoy=new Date();
+  const fecha=hoy.toLocaleDateString('es-CR',{year:'numeric',month:'long',day:'numeric'});
+  const metodoTxt=$('metodo').selectedOptions[0].textContent;
+  const modoTxt=$('modo').selectedOptions[0].textContent;
+  const excl=[...exT,...exZ].join(', ')||'ninguna';
+  const usdMeta=PL?`P&amp;L cargado · USD/mes a distribuir: ${$('pltot').textContent}${PL.fmt==='acum'?' (acum ÷ '+plMeses()+')':''}`:'Sin P&amp;L cargado';
+  const kUsdHtml=PL?`<div class="kpi"><div class="v">${$('kUsd').textContent}</div><div class="l">Costo P&amp;L (USD)</div></div>`:'';
+  const logo=document.querySelector('.header-logo svg').outerHTML;
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>OLO — Análisis Distribución Gastos de Personal · ${fecha}</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF6F5;--bg2:#FFFFFF;--bg3:#F0F8F7;--card:#FFFFFF;--border:#D0EAE6;--border2:#B3DDD8;--blue:#009B8D;--blue2:#007B6E;--green2:#007B6E;--teal-light:#E8F7F5;--text:#1A1A1A;--text2:#475569;--text3:#888888;--radius2:12px;--shadow:0 1px 3px rgba(0,0,0,.08),0 8px 24px -8px rgba(0,155,141,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Manrope',system-ui,sans-serif;font-size:14px;padding:28px;max-width:1100px;margin:0 auto}
+.hd{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.hd h1{font-size:19px;font-weight:800}
+.sub{color:var(--text2);font-size:12px;margin-bottom:6px;font-weight:600}
+.meta{color:var(--text3);font-size:12px;margin-bottom:20px;line-height:1.6}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;box-shadow:var(--shadow)}
+.kpi .v{font-size:19px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:var(--blue)}
+.kpi .l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;font-weight:700}
+h4{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--bg3);color:var(--text2);text-transform:uppercase;font-size:11px;font-weight:700;letter-spacing:.06em;text-align:right;padding:9px 11px;border-bottom:2px solid var(--border);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:8px 11px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+td:first-child{font-family:'Manrope',sans-serif;font-weight:600;font-size:13px}
+tr.tot td{font-weight:700;border-top:2px solid var(--border2);background:var(--bg3)}
+.bar{height:6px;background:var(--teal-light);border-radius:3px;overflow:hidden;min-width:90px}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:3px}
+.pct{color:var(--green2);font-weight:600}
+ul{list-style:none}
+ul li{position:relative;margin:8px 0;padding-left:20px;font-size:13px;line-height:1.55;color:var(--text2)}
+ul li::before{content:'▸';position:absolute;left:4px;color:var(--blue);font-weight:800}
+ul li b{color:var(--text)}
+@media print{body{background:#fff;padding:12px}.card,.kpi{box-shadow:none}}
+</style></head><body>
+<div class="hd">${logo}<div><h1>OLO Logistics — Distribución de Gastos de Personal</h1><div class="sub">ANÁLISIS GENERADO EL ${fecha.toUpperCase()}</div></div></div>
+<div class="meta">Fuente HC: ${FNAME||'—'} · ${EMP.length} empleados &nbsp;|&nbsp; Método: ${metodoTxt} &nbsp;|&nbsp; Exclusiones: ${excl} (${modoTxt.toLowerCase()}) &nbsp;|&nbsp; ${usdMeta}</div>
+<div class="kpis">
+<div class="kpi"><div class="v">${$('kEmp').textContent}</div><div class="l">Empleados incluidos</div></div>
+<div class="kpi"><div class="v">${$('kTot').textContent}</div><div class="l">Salario incluido</div></div>
+<div class="kpi"><div class="v">${$('kZon').textContent}</div><div class="l">Zonas activas</div></div>
+${kUsdHtml}
+</div>
+<div class="card"><h4>Distribución por Zona</h4>${$('tbl').outerHTML}</div>
+<div class="card"><h4>Resumen por Área</h4>${$('tblTipo').outerHTML}</div>
+<div class="card"><h4>Observaciones Generales</h4><ul>${$('obslist').innerHTML}</ul></div>
+</body></html>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+  a.download='analisis_gastos_personal_'+hoy.toISOString().slice(0,10)+'.html';
+  a.click();
+};
+
+$('clear').onclick=()=>{
+  if(!confirm('¿Borrar los datos guardados y volver a la pantalla inicial?'))return;
+  try{localStorage.removeItem(LS_KEY);}catch(err){}
+  location.reload();
+};
+loadState();
+$('redist').onchange=calc;
+$('modo').onchange=calc;
+$('metodo').onchange=calc;
+
+$('csv').onclick=()=>{
+  const {zs,dist,redis,fin,hc,totFin,usd,usdTot}=window._export;
+  let csv='Zona,HC eq,Directo CRC,Redistribuido CRC,Total CRC,%,USD P&L\n';
+  zs.forEach(z=>csv+=`"${z}",${hc[z].toFixed(2)},${Math.round(dist[z])},${Math.round(redis[z])},${Math.round(fin[z])},${(fin[z]/totFin*100).toFixed(4)},${usdTot?usd[z].toFixed(2):''}\n`);
+  csv+=`TOTAL,,,,${Math.round(totFin)},100,${usdTot?usdTot.toFixed(2):''}\n`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));
+  a.download='distribucion_personal.csv';a.click();
+};
+</script>
+</body>
+</html>
