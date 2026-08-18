@@ -86,8 +86,14 @@
 </div>
 
 <div class="main">
-<div id="drop" class="drop">Arrastrá el archivo de headcount aquí o <b>hacé clic para seleccionar</b> (.xlsx / .csv)<br>
-  <span style="font-size:12px;color:var(--text3);font-weight:500">Columnas esperadas: Nombre · Código · Tipo · Salario Referencia · Zona</span>
+<div id="drop" class="drop">
+  <div style="margin-bottom:16px">Arrastrá el archivo de headcount aquí o <b>hacé clic para seleccionar</b> (.xlsx / .csv)<br>
+  <span style="font-size:12px;color:var(--text3);font-weight:500">Columnas esperadas: Nombre · Código · Tipo · Salario Referencia · Zona</span></div>
+  <div style="border-top:1px dashed var(--border2);padding-top:16px;margin-top:8px">
+    <button class="btn" id="loadSupabase" onclick="event.stopPropagation();loadFromSupabase()">🗄️ Cargar desde Supabase</button>
+    <span style="font-size:12px;color:var(--text3);font-weight:500;margin-left:8px">Período más reciente con HC y P&L</span>
+  </div>
+  <div id="sbLoading" class="hidden" style="margin-top:12px;color:var(--blue);font-weight:600;font-size:13px">⏳ Conectando con Supabase...</div>
   <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hidden">
 </div>
 
@@ -168,6 +174,7 @@
 </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 let EMP=[], TIPOS=new Set(), ZONAS=new Set(), exT=new Set(), exZ=new Set(), FNAME='', PL=null;
 const $=id=>document.getElementById(id);
@@ -545,7 +552,7 @@ $('share').onclick=()=>{
   const kUsdHtml=PL?`<div class="kpi"><div class="v">${$('kUsd').textContent}</div><div class="l">Costo P&amp;L (USD)</div></div>`:'';
   const logo=document.querySelector('.header-logo svg').outerHTML;
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>OLO — Análisis Distribución Gastos de Personal · ${fecha}</title>
+<title>OLO — Análisis Distribución Gastos de Personal · ${fecha}<\/title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#EEF6F5;--bg2:#FFFFFF;--bg3:#F0F8F7;--card:#FFFFFF;--border:#D0EAE6;--border2:#B3DDD8;--blue:#009B8D;--blue2:#007B6E;--green2:#007B6E;--teal-light:#E8F7F5;--text:#1A1A1A;--text2:#475569;--text3:#888888;--radius2:12px;--shadow:0 1px 3px rgba(0,0,0,.08),0 8px 24px -8px rgba(0,155,141,.15)}
@@ -575,7 +582,7 @@ ul li{position:relative;margin:8px 0;padding-left:20px;font-size:13px;line-heigh
 ul li::before{content:'▸';position:absolute;left:4px;color:var(--blue);font-weight:800}
 ul li b{color:var(--text)}
 @media print{body{background:#fff;padding:12px}.card,.kpi{box-shadow:none}}
-</style></head><body>
+<\/style><\/head><body>
 <div class="hd">${logo}<div><h1>OLO Logistics — Distribución de Gastos de Personal</h1><div class="sub">ANÁLISIS GENERADO EL ${fecha.toUpperCase()}</div></div></div>
 <div class="meta">Fuente HC: ${FNAME||'—'} · ${EMP.length} empleados &nbsp;|&nbsp; Método: ${metodoTxt} &nbsp;|&nbsp; Exclusiones: ${excl} (${modoTxt.toLowerCase()}) &nbsp;|&nbsp; ${usdMeta}</div>
 <div class="kpis">
@@ -586,8 +593,8 @@ ${kUsdHtml}
 </div>
 <div class="card"><h4>Distribución por Zona</h4>${$('tbl').outerHTML}</div>
 <div class="card"><h4>Resumen por Área</h4>${$('tblTipo').outerHTML}</div>
-<div class="card"><h4>Observaciones Generales</h4><ul>${$('obslist').innerHTML}</ul></div>
-</body></html>`;
+<div class="card"><h4>Observaciones Generales</h4><ul>${$('obslist').innerHTML}<\/ul><\/div>
+<\/body><\/html>`;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
   a.download='analisis_gastos_personal_'+hoy.toISOString().slice(0,10)+'.html';
@@ -613,6 +620,94 @@ $('csv').onclick=()=>{
   a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));
   a.download='distribucion_personal.csv';a.click();
 };
+
+/* ===== SUPABASE ===== */
+const SUPABASE_URL='https://uwvvmlitsafnfdcgachq.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dnZtbGl0c2FmbmZkY2dhY2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNjc3OTAsImV4cCI6MjEwMjY0Mzc5MH0.JOk4vj_q97HhQm_TmFArR34qJoouGnin8ivytlFWHlI';
+let sb = null;
+try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {db:{schema:'olo'}}); } catch(e) { console.warn('Supabase SDK not loaded', e); }
+
+async function loadFromSupabase(){
+  const loading=$('sbLoading');
+  loading.classList.remove('hidden');
+  loading.style.color='var(--blue)';
+  loading.textContent='⏳ Conectando con Supabase...';
+  try{
+    if(!sb){
+      if(window.supabase) sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {db:{schema:'olo'}});
+      else throw new Error('Supabase SDK no cargó. Verificá la conexión a internet.');
+    }
+    // 1. Get latest periodo
+    const {data:periodos,error:e1}=await sb.from('periodo').select('*').order('anio',{ascending:false}).order('mes',{ascending:false}).limit(1);
+    if(e1)throw new Error('Error cargando periodo: '+e1.message);
+    if(!periodos||!periodos.length)throw new Error('No hay periodos en la base de datos');
+    const periodo=periodos[0];
+    loading.textContent='⏳ Cargando período '+periodo.etiqueta+'...';
+
+    // 2. Get empleados with area
+    const {data:empleados,error:e2}=await sb.from('empleado').select('id,codigo,nombre,salario_ref,area:area_id(nombre)').eq('periodo_id',periodo.id);
+    if(e2)throw new Error('Error cargando empleados: '+e2.message);
+    loading.textContent='⏳ '+empleados.length+' empleados cargados, obteniendo zonas...';
+
+    // 3. Get empleado_zona with zona name
+    const {data:asignaciones,error:e3}=await sb.from('empleado_zona').select('empleado_id,zona:zona_id(nombre)');
+    if(e3)throw new Error('Error cargando asignaciones: '+e3.message);
+
+    // 4. Get P&L lines
+    const {data:plLineas,error:e4}=await sb.from('pl_linea').select('*').eq('periodo_id',periodo.id);
+    if(e4)throw new Error('Error cargando P&L: '+e4.message);
+
+    loading.textContent='⏳ Procesando datos...';
+
+    // Build zona map per empleado
+    const zonaMap={};
+    asignaciones.forEach(a=>{
+      if(!zonaMap[a.empleado_id])zonaMap[a.empleado_id]=[];
+      zonaMap[a.empleado_id].push(a.zona.nombre);
+    });
+
+    // Build EMP array (same format as Excel parser)
+    EMP=[];TIPOS=new Set();ZONAS=new Set();
+    empleados.forEach(emp=>{
+      const tipo=emp.area?emp.area.nombre:'SIN ÁREA';
+      const zonas=zonaMap[emp.id]||['SIN ZONA'];
+      EMP.push({nombre:emp.nombre,tipo,sal:parseFloat(emp.salario_ref),zonas});
+      TIPOS.add(tipo);
+      zonas.forEach(z=>ZONAS.add(z));
+    });
+
+    FNAME='Supabase · '+periodo.etiqueta+' ('+(periodo.archivo_hc||'HC')+')';
+    exT=new Set();exZ=new Set();
+    $('fname').textContent=FNAME+' · '+EMP.length+' empleados';
+    const w=$('warn');w.classList.add('hidden');
+    drop.classList.add('hidden');$('app').classList.remove('hidden');
+    buildFilters();
+
+    // Load P&L data if available
+    if(plLineas&&plLineas.length){
+      PL={wb:null,fmt:'acum',months:[],mi:0,lines:[],sel:new Set()};
+      $('plmeses').value=periodo.meses_acum||1;
+      plLineas.forEach((l,idx)=>{
+        const v=parseFloat(l.monto_acum)||0;
+        if(!v)return;
+        PL.lines.push({i:idx,code:l.cuenta||'',name:l.concepto,vals:[v]});
+        if(l.seleccionada)PL.sel.add(idx);
+      });
+      $('plmonth').classList.add('hidden');
+      const ss=$('plsheet');ss.innerHTML='';
+      const o=document.createElement('option');o.textContent='P&L '+periodo.etiqueta+' — Supabase';ss.appendChild(o);
+      $('plcard').classList.remove('hidden');$('kUsdBox').classList.remove('hidden');
+      renderPLList();
+    }
+
+    calc();
+    loading.classList.add('hidden');
+  }catch(err){
+    loading.textContent='❌ '+err.message;
+    loading.style.color='var(--red)';
+    console.error(err);
+  }
+}
 </script>
 </body>
 </html>
